@@ -1,0 +1,13 @@
+*.swp
+*.cmd
+.cache
+*.symvers
+a.out
+*.json
+*.ko
+*.o
+*.mod*
+list_word
+*.order
+user.c
+
