@@ -31,6 +31,16 @@ MODULE_PARM_DESC(blink_pr, "Blink period in ms");
 // this is the pointeur to the thread task
 static struct task_struct *task;
 
+static int blink(void *arg)
+{
+    while (!kthread_should_stop()) {
+        set_current_state(TASK_RUNNING);
+        msleep(blink_pr);
+        gpio_set_value(GPIO_CTRL_OUT, !gpio_get_value(GPIO_CTRL_OUT));
+    }
+    return (0);
+}
+
 static int __init drv_blink_init(void)
 {
     printk(KERN_INFO "BLINK DRV: Initialisation: blink at %d ms", blink_pr);
@@ -61,8 +71,19 @@ static int __init drv_blink_init(void)
     // at the start we put the value at 1 -> the Led will light up
     gpio_set_value(GPIO_CTRL_OUT, 1);
 
+    // Now we will start a kernel thread (it will be detached)
+    task = kthread_run(blink, NULL, "blink_thread");
+    if (IS_ERR(task)) {
+        LOG("the blink task fail to run");
+        goto r_gpio;
+    }
+
     return (0);
 
+r_gpio:
+    gpio_set_value(GPIO_CTRL_OUT, 0);
+    gpio_unexport(GPIO_CTRL_OUT);
+    gpio_free(GPIO_CTRL_OUT);
 r_class:
     class_destroy(dev_class);
 r_device:
@@ -79,6 +100,9 @@ static void drv_blink_exit(void)
     class_destroy(dev_class);
     // free the region in the dev
     unregister_chrdev_region(dev, 1);
+
+    // don't forget to stop the task
+    kthread_stop(task);
 
     // unrealease our GPIO
     gpio_set_value(GPIO_CTRL_OUT, 0);
