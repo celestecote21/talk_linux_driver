@@ -11,6 +11,8 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 
+#include "letters.h"
+
 #define LOG(str) (printk(KERN_ALERT "BLINK DRV: %s\n", str))
 #define LOGINFO(str) (printk(KERN_INFO "BLINK DRV: %s\n", str))
 
@@ -23,22 +25,84 @@ dev_t dev = MKDEV(55, 12);
 // the class struct will represent the /sys/class of the device
 static struct class *dev_class;
 
+static struct cdev cdev;
+
 static int blink_pr = 200;
 
 module_param(blink_pr, int, S_IWUSR | S_IWGRP | S_IRUGO);
 MODULE_PARM_DESC(blink_pr, "Blink period in ms");
 
-// this is the pointeur to the thread task
-static struct task_struct *task;
+static int my_open(struct inode *inode, struct file *file);
+static int my_release(struct inode *inode, struct file *file);
+static ssize_t my_read(struct file *filp, char *buf, size_t len,loff_t * off);
+static ssize_t my_write(struct file *filp, const char *buf, size_t len, loff_t * off);
 
-static int blink(void *arg)
+
+static struct file_operations file_ops =
 {
-    while (!kthread_should_stop()) {
-        set_current_state(TASK_RUNNING);
-        msleep(blink_pr);
-        gpio_set_value(GPIO_CTRL_OUT, !gpio_get_value(GPIO_CTRL_OUT));
-    }
+    .owner = THIS_MODULE,
+    .read = my_read,
+    .write = my_write,
+    .open = my_open,
+    .release = my_release,
+};
+
+static int my_open(struct inode *inode, struct file *file)
+{
     return (0);
+}
+
+static int my_release(struct inode *inode, struct file *file)
+{
+    return (0);
+}
+
+static ssize_t my_read(struct file *filp, char __user *buf, size_t len, loff_t *off)
+{
+    return (0);
+}
+
+int get_code(char c)
+{
+    int i = 0;
+
+    while (i < nb_letter) {
+        if (letters[i].c == c)
+            return (i);
+        i++;
+    }
+    return (nb_letter - 1);
+}
+
+int send_letter(char const c)
+{
+    int i = 0;
+    int index_code = get_code(c);
+
+    while (i < 6) {
+        gpio_set_value(GPIO_CTRL_OUT, letters[index_code].code[i]);
+        msleep(blink_pr);
+        gpio_set_value(GPIO_CTRL_OUT, 0);
+        msleep(blink_pr);
+        i++;
+    }
+    return (1);
+}
+
+static ssize_t my_write(struct file *filp, const char *buf, size_t len, loff_t * off)
+{
+    int i = 0;
+    if (buf == NULL)
+        return (-1);
+
+    gpio_set_value(GPIO_CTRL_OUT, 1);
+    msleep(blink_pr * 12);
+    gpio_set_value(GPIO_CTRL_OUT, 0);
+    while (i < len) {
+        send_letter(buf[i]);
+        i++;
+    }
+    return (i);
 }
 
 static int __init drv_blink_init(void)
@@ -62,6 +126,11 @@ static int __init drv_blink_init(void)
 	    LOG("error can't create the device\n");
         goto r_class;
     }
+    cdev_init(&cdev, &file_ops);
+    if (cdev_add(&cdev, dev, 1) < 0) {
+	    LOG("can't add file ops\n");
+        goto r_class;
+    }
 
     gpio_request(GPIO_CTRL_OUT, "sysfs");
     // Set the gpio to be in output mode
@@ -69,14 +138,7 @@ static int __init drv_blink_init(void)
     // Causes to appear in /sys/class/gpio
     gpio_export(GPIO_CTRL_OUT, false);
     // at the start we put the value at 1 -> the Led will light up
-    gpio_set_value(GPIO_CTRL_OUT, 1);
-
-    // Now we will start a kernel thread (it will be detached)
-    task = kthread_run(blink, NULL, "blink_thread");
-    if (IS_ERR(task)) {
-        LOG("the blink task fail to run");
-        goto r_gpio;
-    }
+    gpio_set_value(GPIO_CTRL_OUT, 0);
 
     return (0);
 
@@ -100,9 +162,6 @@ static void drv_blink_exit(void)
     class_destroy(dev_class);
     // free the region in the dev
     unregister_chrdev_region(dev, 1);
-
-    // don't forget to stop the task
-    kthread_stop(task);
 
     // unrealease our GPIO
     gpio_set_value(GPIO_CTRL_OUT, 0);
