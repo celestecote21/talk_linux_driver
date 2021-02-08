@@ -1,0 +1,52 @@
+From 5ab105eac8a34719fecc0897242f35e5cb02d887 Mon Sep 17 00:00:00 2001
+From: celeste cote <celeste@cote21.fr>
+Date: Mon, 1 Feb 2021 23:41:08 +0000
+Subject: [PATCH] patch1 init
+
+---
+ blink_kern.c | 35 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/blink_kern.c b/blink_kern.c
+index e69de29..c98a970 100644
+--- a/blink_kern.c
++++ b/blink_kern.c
+@@ -0,0 +1,35 @@
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/fs.h>
++#include <linux/device.h>
++#include <linux/kdev_t.h>
++#include <linux/cdev.h>
++
++#define LOG(str) (printk(KERN_ALERT "BLINK DRV: %s\n", str))
++
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_AUTHOR("Celeste");
++
++dev_t dev = MKDEV(55, 12);
++
++static int __init drv_blink_init(void)
++{
++    LOG("initialisation");
++    // allocation of the major and minor dev
++    if (register_chrdev_region(dev, 1, "blink_drv_dev_reg") < 0) {
++	    LOG("error can't create the dev\n");
++        return (-1);
++    }
++    return (0);
++}
++
++static void drv_blink_exit(void)
++{
++    LOG("exit");
++    // free the region in the dev
++    unregister_chrdev_region(dev, 1);
++}
++
++module_init(drv_blink_init);
++module_exit(drv_blink_exit);
+-- 
+2.20.1
+

@@ -1,0 +1,82 @@
+From a1a32a671ecd33c399541cc96815bc6fbdf0139f Mon Sep 17 00:00:00 2001
+From: celeste cote <celeste@cote21.fr>
+Date: Wed, 3 Feb 2021 21:04:36 +0000
+Subject: [PATCH] patch4: base code for GPIO
+
+---
+ blink_kern.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/blink_kern.c b/blink_kern.c
+index 4f8b8d1..4faa778 100644
+--- a/blink_kern.c
++++ b/blink_kern.c
+@@ -7,10 +7,15 @@
+ #include <linux/device.h>
+ #include <linux/kdev_t.h>
+ #include <linux/cdev.h>
++#include <linux/gpio.h>
++#include <linux/kthread.h>
++#include <linux/delay.h>
+ 
+ #define LOG(str) (printk(KERN_ALERT "BLINK DRV: %s\n", str))
+ #define LOGINFO(str) (printk(KERN_INFO "BLINK DRV: %s\n", str))
+ 
++#define GPIO_CTRL_OUT 4
++
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_AUTHOR("Celeste");
+ 
+@@ -23,6 +28,9 @@ static int blink_pr = 200;
+ module_param(blink_pr, int, S_IWUSR | S_IWGRP | S_IRUGO);
+ MODULE_PARM_DESC(blink_pr, "Blink period in ms");
+ 
++// this is the pointeur to the thread task
++static struct task_struct *task;
++
+ static int __init drv_blink_init(void)
+ {
+     printk(KERN_INFO "BLINK DRV: Initialisation: blink at %d ms", blink_pr);
+@@ -32,17 +40,27 @@ static int __init drv_blink_init(void)
+         return (-1);
+     }
+ 
++    // class creation
+     dev_class = class_create(THIS_MODULE, "blink_drv_class");
+     if (dev_class == NULL) {
+ 	    LOG("error can't create the class\n");
+         goto r_device;
+     }
+ 
++    // device creation
+     if (device_create(dev_class, NULL, dev, NULL, "blink_dev") == NULL) {
+ 	    LOG("error can't create the device\n");
+         goto r_class;
+     }
+ 
++    gpio_request(GPIO_CTRL_OUT, "sysfs");
++    // Set the gpio to be in output mode
++    gpio_direction_output(GPIO_CTRL_OUT, true);
++    // Causes to appear in /sys/class/gpio
++    gpio_export(GPIO_CTRL_OUT, false);
++    // at the start we put the value at 1 -> the Led will light up
++    gpio_set_value(GPIO_CTRL_OUT, 1);
++
+     return (0);
+ 
+ r_class:
+@@ -61,6 +79,11 @@ static void drv_blink_exit(void)
+     class_destroy(dev_class);
+     // free the region in the dev
+     unregister_chrdev_region(dev, 1);
++
++    // unrealease our GPIO
++    gpio_set_value(GPIO_CTRL_OUT, 0);
++    gpio_unexport(GPIO_CTRL_OUT);
++    gpio_free(GPIO_CTRL_OUT);
+ }
+ 
+ module_init(drv_blink_init);
+-- 
+2.20.1
+

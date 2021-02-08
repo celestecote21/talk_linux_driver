@@ -1,0 +1,52 @@
+From 978672e0e88210ff1306ddcd37969c5e78a42e63 Mon Sep 17 00:00:00 2001
+From: celeste cote <celeste@cote21.fr>
+Date: Mon, 1 Feb 2021 23:39:23 +0000
+Subject: [PATCH] initial commit
+
+---
+ .gitignore   | 13 +++++++++++++
+ Makefile     |  7 +++++++
+ blink_kern.c |  0
+ 3 files changed, 20 insertions(+)
+ create mode 100644 .gitignore
+ create mode 100644 Makefile
+ create mode 100644 blink_kern.c
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..58fd0e0
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,13 @@
++*.swp
++*.cmd
++.cache
++*.symvers
++a.out
++*.json
++*.ko
++*.o
++*.mod*
++list_word
++*.order
++user.c
++
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..9710184
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,7 @@
++obj-m += blink_kern.o
++
++all:
++	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
++clean:
++	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
++
+diff --git a/blink_kern.c b/blink_kern.c
+new file mode 100644
+index 0000000..e69de29
+-- 
+2.20.1
+
