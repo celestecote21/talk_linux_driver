@@ -107,7 +107,7 @@ static ssize_t my_write(struct file *filp, const char *buf, size_t len, loff_t *
 
 static int __init drv_blink_init(void)
 {
-    printk(KERN_INFO "BLINK DRV: Initialisation: blink at %d ms", blink_pr);
+    printk(KERN_INFO "BLINK DRV: Initialisation: blink at %d ms\n", blink_pr);
     // allocation of the major and minor dev
     if (register_chrdev_region(dev, 1, "blink_drv_dev_reg") < 0) {
 	    LOG("error can't create the dev with major and minor\n");
